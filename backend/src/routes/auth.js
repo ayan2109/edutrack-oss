@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { randomInt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import { authAdmin, database } from '../lib/firebaseAdmin.js';
+import { deliverOtp } from '../services/smsProvider.js';
 
 const r = Router();
 const pendingOtps = new Map();
@@ -16,12 +17,9 @@ function normalizePhone(value) {
   return phoneSchema.parse(normalized);
 }
 
-// Development-only OTP delivery: code is printed to the backend terminal, never returned by the API.
+// OTP is delivered through the configured adapter. Console delivery is development-only.
 r.post('/send-otp', async (req, res, next) => {
   try {
-    if (process.env.OTP_DELIVERY !== 'console' || process.env.NODE_ENV === 'production') {
-      return res.status(503).json({ message: 'Console OTP is development-only. Configure a real SMS provider before production.' });
-    }
     const { phoneNumber } = z.object({ phoneNumber: z.string().min(10).max(16) }).parse(req.body);
     const phone = normalizePhone(phoneNumber);
     const now = Date.now();
@@ -30,9 +28,17 @@ r.post('/send-otp', async (req, res, next) => {
       return res.status(429).json({ message: 'Please wait 30 seconds before requesting another OTP.' });
     }
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    pendingOtps.set(phone, { code, sentAt: now, expiresAt: now + OTP_TTL_MS, attempts: 0 });
-    console.log(`\n[EduTrack DEV OTP] ${phone} => ${code} (valid for 5 minutes)\n`);
-    return res.json({ message: 'OTP generated. Check the backend terminal (development only).', expiresIn: OTP_TTL_MS / 1000 });
+    try {
+      const delivery = await deliverOtp(phone, code);
+      pendingOtps.set(phone, { codeHash: createHash('sha256').update(code).digest(), sentAt: now, expiresAt: now + OTP_TTL_MS, attempts: 0 });
+      const message = delivery.channel === 'console'
+        ? 'OTP generated. Check the backend terminal (development only).'
+        : 'OTP sent successfully. Check your mobile phone.';
+      return res.json({ message, deliveryChannel: delivery.channel, provider: delivery.provider, expiresIn: OTP_TTL_MS / 1000, resendAfter: RESEND_COOLDOWN_MS / 1000 });
+    } catch (deliveryError) {
+      pendingOtps.delete(phone);
+      return res.status(503).json({ message: deliveryError.message || 'Unable to send OTP. Check SMS provider configuration.' });
+    }
   } catch (error) { next(error); }
 });
 
@@ -55,8 +61,8 @@ r.post('/verify-otp', async (req, res, next) => {
       return res.status(429).json({ message: 'Too many incorrect attempts. Request a new OTP.' });
     }
     record.attempts += 1;
-    const supplied = Buffer.from(otp);
-    const expected = Buffer.from(record.code);
+    const supplied = createHash('sha256').update(otp).digest();
+    const expected = record.codeHash;
     if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
       return res.status(400).json({ message: `Incorrect OTP. ${MAX_ATTEMPTS - record.attempts} attempts remaining.` });
     }

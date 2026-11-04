@@ -27,7 +27,9 @@ export default function PhoneLogin({ onAuthenticated }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Unable to generate OTP.');
       setOtpSent(true);
-      setNotice('OTP generated. Check the EduTrack backend terminal for the 6-digit code.');
+      setNotice(data.deliveryChannel === 'console'
+        ? 'Development OTP generated. Check the EduTrack backend terminal for the 6-digit code.'
+        : `OTP sent to your mobile number via ${data.provider || 'SMS provider'}. It expires in 5 minutes.`);
     } catch (err) { setError(err.message || 'Unable to generate OTP.'); }
     finally { setBusy(false); }
   };
@@ -54,7 +56,7 @@ export default function PhoneLogin({ onAuthenticated }) {
     <div className="auth-brand"><div className="brand-mark"><GraduationCap size={23}/></div><div><b>EduTrack<span>OSS</span></b><small>Academic workspace</small></div></div>
     <div className="auth-icon"><ShieldCheck size={25}/></div><span className="eyebrow">PHONE OTP SIGN IN</span>
     <h1>{otpSent ? 'Verify your number' : 'Welcome to EduTrack'}</h1>
-    <p>{otpSent ? `Enter the code printed in the backend terminal for +91 ${phone}.` : 'Sign in or create your institution account using your mobile number.'}</p>
+    <p>{otpSent ? `Enter the 6-digit code sent to +91 ${phone}.` : 'Sign in or create your institution account using your mobile number.'}</p>
     {!otpSent ? <form onSubmit={sendOtp} className="auth-form">
       <label>Mobile number</label><div className="phone-input"><span>🇮🇳 +91</span><input value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="10-digit mobile number" inputMode="numeric" autoComplete="tel-national" required/></div>
       <label>Institution name <small>(for first-time setup)</small></label><input value={institution} onChange={e=>setInstitution(e.target.value)} placeholder="Your school / college / institute"/>
@@ -65,6 +67,6 @@ export default function PhoneLogin({ onAuthenticated }) {
       <button type="button" className="auth-back" onClick={()=>{setOtpSent(false);setOtp('');setError('');setNotice('');}}>Change phone number</button>
     </form>}
     {notice&&<div className="auth-notice">{notice}</div>}{error&&<div className="auth-error">{error}</div>}
-    <div className="auth-foot">Development mode: OTP is printed only in the backend terminal. No Firebase SMS is sent.</div>
+    <div className="auth-foot">OTP delivery is configured by the server administrator. Development mode prints the code in the backend terminal; production mode uses the configured SMS provider.</div>
   </div></div>;
 }
