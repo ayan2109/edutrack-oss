@@ -12,3 +12,12 @@
 @media(max-width:520px){.auth-card{padding:25px 20px;border-radius:18px}.auth-card h1{font-size:24px}}
 
 .auth-notice{margin-top:14px;padding:11px 12px;border-radius:10px;background:#eef6ff;color:#175cd3;font-size:12px;line-height:1.5}
+
+/* Multi-institute workspace additions */
+.workspace-picker{min-width:0;display:flex;flex-direction:column;gap:3px;flex:1}
+.workspace-picker b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workspace-picker select{width:100%;max-width:185px;margin-top:5px;padding:5px 7px;border:1px solid var(--border, #e5e7eb);border-radius:7px;background:var(--surface, #fff);color:inherit;font:inherit;font-size:11px}
+.platform-shell .sidebar,.student-shell .sidebar{position:relative}
+.platform-shell .page-wrap,.student-shell .page-wrap{max-width:1200px}
+.workspace-add{border:0;background:transparent;color:var(--accent,#6474ed);font:inherit;font-size:11px;text-align:left;padding:3px 0;cursor:pointer}
+.institution-layout{min-height:100vh}

@@ -12,9 +12,9 @@ An open-source examination and academic management platform. Current stack: Reac
 ## Firebase setup
 1. Create a Realtime Database and copy its exact database URL. Do not assume the default URL; regional databases may use a `.firebasedatabase.app` hostname.
 2. In Project settings → Service accounts, generate a private key. Keep it private; never commit it.
-3. Copy `backend/.env.example` to `backend/.env`. Set `FIREBASE_SERVICE_ACCOUNT_JSON` to the complete service-account JSON as a single-line JSON value (or set `GOOGLE_APPLICATION_CREDENTIALS` to a secure local file path) and set `FIREBASE_DATABASE_URL` to the exact URL from the console. Keep `NODE_ENV=development` and `OTP_DELIVERY=console` for local development. Never commit `backend/.env`.
+3. Copy `backend/.env.example` to `backend/.env`. For production also set `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and a random `OTP_HASH_SECRET` of at least 32 characters. Set `FIREBASE_SERVICE_ACCOUNT_JSON` to the complete service-account JSON as a single-line JSON value (or set `GOOGLE_APPLICATION_CREDENTIALS` to a secure local file path) and set `FIREBASE_DATABASE_URL` to the exact URL from the console. Keep `NODE_ENV=development` and `OTP_DELIVERY=console` for local development. Never commit `backend/.env`.
 4. Copy root `.env.example` to `frontend/.env` if you want to override the provided public web config. Set `VITE_FIREBASE_DATABASE_URL` to the same exact RTDB URL.
-5. Apply `database.rules.json` to Realtime Database. The rules deny direct client access; the Express API uses the Admin SDK after verifying Firebase ID tokens.
+5. Apply `database.firebase.rules.json` to Realtime Database. The rules deny direct client access; the Express API uses the Admin SDK after verifying Firebase ID tokens.
 6. Firebase Phone sign-in/SMS region settings are not used by this flow. The backend creates Firebase Auth phone users with the Admin SDK after the development OTP is verified.
 
 ## Install and run
@@ -71,7 +71,7 @@ Use either MSG91 or Twilio configuration, not both. Provider requests have a con
 
 ### Deployment limitations to address before a public production rollout
 
-The current OTP store is in-memory and is suitable only for a single backend process / development-scale deployment. Restarting the server clears pending OTPs, and multiple server instances do not share them. Before a multi-instance or high-volume production deployment, replace it with shared storage such as Redis, add per-phone/IP abuse controls and monitoring, and verify provider template, delivery, DLT/consent and regional requirements. The HTTP rate limits are useful baseline protections but are not a complete anti-abuse system.
+Development uses an in-memory OTP store. Production refuses to start unless Upstash Redis REST URL/token and a 32+ character `OTP_HASH_SECRET` are configured. OTP records, resend cooldowns and atomic attempt checks are shared through Redis. The included IP rate limits are still per-process; configure edge/proxy rate limiting and monitoring for multi-instance deployments. The HTTP rate limits are useful baseline protections but are not a complete anti-abuse system.
 
 ## Realtime Database data layout
 
@@ -97,16 +97,29 @@ users/{firebaseUid}
 
 Protected endpoints require `Authorization: Bearer <Firebase ID token>`.
 
+## Deployment starter files
+- `render.yaml` describes a Render Node API service and secret environment variables. Review it before creating the service.
+- `netlify.toml` configures the frontend Vite build and SPA fallback. Set `VITE_API_URL` and Firebase public web configuration in the Netlify environment.
+- `firebase.json` explicitly deploys `database.firebase.rules.json` when using the Firebase CLI.
+- `docs/PRODUCTION-CHECKLIST.md` contains staging, security, SMS and operations checks.
+
 ## Important production work still required
 - Confirm the exact RTDB URL and service-account setup in the target Firebase project.
-- Replace the in-memory OTP store with shared persistent/TTL storage (for multi-instance production), strengthen per-phone/IP abuse controls and monitoring, and complete real-device delivery tests with the institution's SMS provider.
-- Add admin onboarding/invitation and role management; current first-login behavior provisions the first phone identity as an institution admin.
+- Complete Firebase Emulator integration tests and cross-tenant security testing; the current automated tests are not a full security certification.
+- Complete real-device SMS delivery tests, provider DLT/consent checks, IP/edge abuse controls and monitoring. Redis is required for production OTP storage, but provider credentials and live service validation are still operator responsibilities.
+- The basic member-management screen supports adding an existing signed-in user by Firebase UID and revoking memberships. Invitation links, first-time user onboarding, bulk import and audit trails remain future work.
 - Complete online exam attempt/answer autosave workflows, institution settings persistence, profile editing and full result lookup UI.
 - Add comprehensive automated tests, audit logging, backups, monitoring and privacy/retention policies.
 - Validate every role and tenant boundary with integration tests before public deployment.
 
 ## Security
-Firebase web API keys are public client identifiers, not server credentials. Never expose the Firebase Admin service-account JSON/private key. Never commit `.env` files. The RTDB rules in `database.rules.json` deny client-side access; all data access in this alpha is performed by the backend Admin SDK.
+Firebase web API keys are public client identifiers, not server credentials. Never expose the Firebase Admin service-account JSON/private key. Never commit `.env` files. The RTDB rules in `database.firebase.rules.json` deny client-side access; all data access in this alpha is performed by the backend Admin SDK.
 
 ## License
 MIT. See [LICENSE](LICENSE).
+
+## Multi-institute architecture
+
+EduTrack uses tenant-scoped memberships. User-to-institute access is stored at `users/{uid}/institutions/{institutionId}` with a tenant-specific role and membership status. Tenant records are stored under `institutions/{institutionId}/...`. Authenticated tenant API calls must include `X-Institution-Id`; the backend verifies active membership before constructing any tenant data path. The frontend provides separate authentication and institution contexts, an institution workspace, a platform console for trusted super administrators, and a student portal. See [`docs/MULTI-INSTITUTE-ARCHITECTURE.md`](docs/MULTI-INSTITUTE-ARCHITECTURE.md).
+
+Use `database.firebase.rules.json` as the Firebase Realtime Database rules source. Direct client access to institution records and privileged membership fields is denied; all tenant data access must pass through the Express API's tenant and role checks.

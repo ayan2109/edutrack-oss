@@ -1,0 +1,86 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.val() === auth.uid"
+        },
+        "name": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && newData.val().length <= 120"
+        },
+        "email": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && newData.val().length <= 254"
+        },
+        "photoURL": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && newData.val().length <= 2048"
+        },
+        "phoneNumber": {
+          ".write": false
+        },
+        "role": {
+          ".write": false
+        },
+        "platformRole": {
+          ".write": false
+        },
+        "institutionId": {
+          ".write": false
+        },
+        "institutions": {
+          "$institutionId": {
+            ".write": false
+          }
+        },
+        "status": {
+          ".write": false
+        },
+        "disabled": {
+          ".write": false
+        },
+        "$other": {
+          ".write": false
+        }
+      }
+    },
+
+    "institutions": {
+      "$institutionId": {
+        ".read": false,
+        ".write": false,
+        "id": { ".read": false, ".write": false },
+        "name": { ".read": false, ".write": false },
+        "code": { ".read": false, ".write": false },
+        "status": { ".read": false, ".write": false },
+        "ownerUid": { ".read": false, ".write": false },
+        "createdAt": { ".read": false, ".write": false },
+        "updatedAt": { ".read": false, ".write": false },
+        "students": { ".read": false, ".write": false },
+        "subjects": { ".read": false, ".write": false },
+        "exams": { ".read": false, ".write": false },
+        "marks": { ".read": false, ".write": false },
+        "results": { ".read": false, ".write": false },
+        "settings": { ".read": false, ".write": false },
+        "members": { ".read": false, ".write": false },
+        "auditLogs": { ".read": false, ".write": false },
+        "$other": { ".read": false, ".write": false }
+      }
+    },
+
+    "_security": {
+      ".read": false,
+      ".write": false
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
